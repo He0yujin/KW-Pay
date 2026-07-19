@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>광운 페이 (KW Token) - Real DApp 연동</title>
+    <!-- 폰트: Pretendard -->
+    <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+
+    <!-- ✨ ethers.js 라이브러리 추가 (블록체인 통신용) ✨ -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+
+    <style>
+        :root {
+            --kw-red: #8a1538;
+            --kw-red-light: #a92048;
+            --bg-color: #f8f9fa;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --text-dark: #333333;
+            --text-muted: #666666;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-dark);
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            background: var(--kw-red);
+            color: white;
+            padding: 24px 20px;
+            text-align: center;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            box-shadow: 0 4px 15px rgba(138, 21, 56, 0.3);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            margin: 8px 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .btn {
+            background: var(--kw-red);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-shadow: 0 4px 10px rgba(138, 21, 56, 0.2);
+        }
+
+        .btn:hover {
+            background: var(--kw-red-light);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 0;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: var(--kw-red);
+            border-bottom: 3px solid var(--kw-red);
+        }
+
+        .content-section {
+            display: none;
+            padding: 24px;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f0f0f0;
+        }
+
+        .info-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .info-card .balance {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0;
+        }
+
+        .info-card .address {
+            font-size: 12px;
+            color: var(--text-muted);
+            word-break: break-all;
+            margin-top: 8px;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .info-card .address:hover {
+            background: #e9ecef;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: all 0.3s;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--kw-red);
+            box-shadow: 0 0 0 3px rgba(138, 21, 56, 0.1);
+        }
+
+        .badge {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes fadein {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeout {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+
+        .demo-notice {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <div class="demo-notice"> 메타마스크 Sepolia 테스트넷 스마트 컨트랙트 연동 모드</div>
+
+        <!-- 공통 헤더 (항상 표시) -->
+        <div id="appHeader" class="header">
+            <h1 id="appTitle">KW Pay (KWT)</h1>
+            <p id="appSubtitle">광운대학교와 지역 상권을 연결하는 결제 시스템</p>
+
+            <!-- 역할 선택 화면 (최초 화면) -->
+            <div id="roleSelection"
+                style="margin-top: 30px; padding: 30px 20px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+                <h2
+                    style="color: var(--kw-red); margin-top: 0; margin-bottom: 25px; font-size: 20px; font-weight: 800;">
+                    어떤 역할로 로그인할까요?</h2>
+                <button class="btn"
+                    style="margin-bottom: 12px; background: #fff0f4; color: var(--kw-red); border: 1px solid var(--kw-red);"
+                    onclick="selectRole('student')">👨‍🎓 광운대생으로 시작</button>
+                <button class="btn" style="background: white; color: var(--text-dark); border: 1px solid #ccc;"
+                    onclick="selectRole('merchant')">🏪 가맹점으로 시작</button>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px; justify-content: center;">
+                <button id="backBtn" class="btn"
+                    style="background: transparent; border: 1px solid white; color: white; display: none; flex: 1;"
+                    onclick="window.location.reload()">처음으로</button>
+                <button id="connectBtn" class="btn"
+                    style="background: white; color: var(--kw-red); display: none; flex: 2;"
+                    onclick="connectWallet()">지갑 연결하기</button>
+            </div>
+        </div>
+
+        <div id="mainApp" style="display: none;">
+            <div class="tabs" id="navTabs">
+                <div class="tab" id="tab-user" onclick="switchTab('user')">내 지갑</div>
+                <div class="tab" id="tab-merchant" onclick="switchTab('merchant')">가맹점</div>
+                <div class="tab" id="tab-admin" onclick="switchTab('admin')">제휴 등록</div>
+            </div>
+
+            <!-- 사용자(송금) 탭 -->
+            <div id="userTab" class="content-section">
+                <div class="info-card">
+                    <h3>현재 연결된 지갑 잔액</h3>
+                    <p class="balance"><span id="userBalance">0.00</span> <span
+                            style="font-size: 16px; font-weight: normal;">KWT</span></p>
+                    <p class="address" title="클릭하여 복사" onclick="copyMyAddress()"><span id="userAddressText">지갑 연결
+                            필요</span></p>
+                </div>
+
+                <div class="form-group">
+                    <label>받는 사람 (가맹점 지갑 주소)</label>
+                    <input type="text" id="payAddress" placeholder="지갑 주소(0x...)를 입력하세요" oninput="checkPartnerStatus()">
+                    <div id="partnerBadge" class="badge" style="display:none; margin-top: 8px;">제휴 가맹점 (10% 할인 적용 대상)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>결제 금액 (원래 가격 KWT)</label>
+                    <input type="number" id="payAmount" placeholder="예: 100">
+                    <p id="discountInfo" style="font-size: 12px; color: var(--kw-red); margin-top: 8px; display: none;">
+                        * 제휴 가맹점 혜택: 이 주소로 송금 시 입력 금액의 90%만 차감 및 전송됩니다
+                    </p>
+                </div>
+
+                <button class="btn" id="payBtn" onclick="payWithToken()">결제하기 (메타마스크 서명)</button>
+            </div>
+
+            <!-- 가맹점 탭 -->
+            <div id="merchantTab" class="content-section">
+                <div class="info-card" style="border: 2px solid var(--kw-red);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>내 가맹점 매출 잔액</h3>
+                        <span id="merchantStatusBadge" class="badge"
+                            style="margin:0; background:#eeeeee; color:#666;">일반 가맹점</span>
+                    </div>
+                    <p class="balance"><span id="merchantBalance">0.00</span> <span
+                            style="font-size: 16px; font-weight: normal;">KWT</span></p>
+                    <p class="address" title="클릭하여 복사" onclick="copyMyAddress()"><span id="merchantAddressText">지갑 연결
+                            필요</span></p>
+                </div>
+
+                <p
+                    style="font-size: 14px; line-height: 1.5; color: var(--text-muted); text-align: center; margin-bottom: 20px;">
+                    학생 고객에게 위 주소를 알려주세요.<br>
+                    매출액은 실시간으로 업데이트됩니다.
+                </p>
+            </div>
+
+            <!-- 관리자 탭 -->
+            <div id="adminTab" class="content-section">
+                <div class="info-card">
+                    <h3>스마트 컨트랙트 관리자 전용</h3>
+                    <p style="font-size: 12px; color: var(--text-muted);">가맹점을 제휴 매장으로 등록합니다. (배포자 계정만 실행 가능)</p>
+                </div>
+
+                <div class="form-group">
+                    <label>제휴 가맹점으로 등록할 주소</label>
+                    <input type="text" id="adminStoreAddress" placeholder="0x...">
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="addPartner()" style="flex:1;">제휴 등록</button>
+                    <button class="btn" onclick="removePartner()" style="flex:1; background:#666;">제휴 해제</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">메시지</div>
+
+    <script>
+        // ==========================================
+        // 🔗 스마트 컨트랙트 연동 설정 
+        // ==========================================
+        const CONTRACT_ADDRESS = "0x5686612493cb3499aAd53eB6052514dB67522771";
+
+        const ABI = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function pay(address _to, uint256 _amount) returns (bool)",
+            "function addPartnerStore(address _store)",
+            "function removePartnerStore(address _store)",
+            "function isPartnerStore(address) view returns (bool)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        let provider;
+        let signer;
+        let contract;
+        let currentAccount = null;
+        let selectedRole = ''; // 'student' or 'merchant'
+
+        // 역할 선택 함수
+        function selectRole(role) {
+            selectedRole = role;
+            document.getElementById('roleSelection').style.display = 'none';
+            document.getElementById('connectBtn').style.display = 'block';
+            document.getElementById('backBtn').style.display = 'block';
+
+            if (role === 'student') {
+                document.getElementById('appTitle').innerText = "👨‍🎓 KW Pay - 학생 모드";
+                document.getElementById('appSubtitle').innerText = "지갑을 연결하여 결제를 진행하세요.";
+            } else if (role === 'merchant') {
+                document.getElementById('appTitle').innerText = "🏪 KW Pay - 가맹점 모드";
+                document.getElementById('appSubtitle').innerText = "지갑을 연결하여 매출액을 확인하세요.";
+            }
+        }
+
+        // 지갑 연결 함수
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                alert('메타마스크(MetaMask)가 설치되어 있지 않습니다!');
+                return;
+            }
+
+            try {
+                provider = new ethers.BrowserProvider(window.ethereum);
+                const accounts = await provider.send("eth_requestAccounts", []);
+                currentAccount = accounts[0];
+
+                signer = await provider.getSigner();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+                // UI 갱신
+                document.getElementById("connectBtn").innerHTML = "연결됨: " + currentAccount.substring(0, 6) + "..." + currentAccount.substring(38) + " <span style='font-size:12px; color:gray;'>(변경/로그아웃)</span>";
+                document.getElementById("connectBtn").style.background = "#e8f5e9";
+                document.getElementById("connectBtn").onclick = switchAccount;
+
+                document.getElementById("mainApp").style.display = "block";
+
+                // 선택된 역할에 따라 탭 숨기기/보이기 처리
+                if (selectedRole === 'student') {
+                    document.getElementById('tab-user').style.display = 'block';
+                    document.getElementById('tab-merchant').style.display = 'none';
+                    document.getElementById('tab-admin').style.display = 'none';
+                    switchTab('user'); // 학생은 무조건 내 지갑 탭
+                } else if (selectedRole === 'merchant') {
+                    document.getElementById('tab-user').style.display = 'none';
+                    document.getElementById('tab-merchant').style.display = 'block';
+                    document.getElementById('tab-admin').style.display = 'block';
+                    switchTab('merchant'); // 가맹점은 가맹점 탭으로 시작
+                }
+
+                await updateUI();
+
+                window.ethereum.on('accountsChanged', function (accounts) {
+                    window.location.reload();
+                });
+
+            } catch (error) {
+                console.error("지갑 연결 실패:", error);
+                alert("지갑 연결을 거부하셨거나 오류가 발생했습니다.");
+            }
+        }
+
+        // 지갑 계정 변경(로그아웃) 기능
+        async function switchAccount() {
+            try {
+                await window.ethereum.request({
+                    method: "wallet_requestPermissions",
+                    params: [{ eth_accounts: {} }]
+                });
+            } catch (error) {
+                console.error("계정 변경 취소:", error);
+            }
+        }
+
+        // 화면 데이터 업데이트
+        async function updateUI() {
+            if (!contract || !currentAccount) return;
+
+            try {
+                const balanceWei = await contract.balanceOf(currentAccount);
+                const balanceKWT = ethers.formatUnits(balanceWei, 18);
+
+                const formattedBalance = parseFloat(balanceKWT).toFixed(2);
+                document.getElementById("userBalance").innerText = formattedBalance;
+                document.getElementById("merchantBalance").innerText = formattedBalance;
+
+                document.getElementById("userAddressText").innerText = "내 주소: " + currentAccount;
+                document.getElementById("merchantAddressText").innerText = "내 주소: " + currentAccount;
+
+                const isPartner = await contract.isPartnerStore(currentAccount);
+                const badge = document.getElementById("merchantStatusBadge");
+                if (isPartner) {
+                    badge.innerText = "제휴 가맹점";
+                    badge.style.background = "#e8f5e9";
+                    badge.style.color = "#2e7d32";
+                } else {
+                    badge.innerText = "일반 가맹점";
+                    badge.style.background = "#eeeeee";
+                    badge.style.color = "#666";
+                }
+            } catch (error) {
+                console.error("데이터 로드 에러:", error);
+            }
+        }
+
+        // 주소 입력 시 제휴 가맹점 뱃지 표시
+        async function checkPartnerStatus() {
+            if (!contract) return;
+            const toAddress = document.getElementById("payAddress").value.trim();
+            const badge = document.getElementById("partnerBadge");
+            const info = document.getElementById("discountInfo");
+
+            try {
+                if (ethers.isAddress(toAddress)) {
+                    const isPartner = await contract.isPartnerStore(toAddress);
+                    if (isPartner) {
+                        badge.style.display = "inline-block";
+                        info.style.display = "block";
+                    } else {
+                        badge.style.display = "none";
+                        info.style.display = "none";
+                    }
+                } else {
+                    badge.style.display = "none";
+                    info.style.display = "none";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // 결제 (스마트 컨트랙트 pay 함수 호출)
+        async function payWithToken() {
+            const toAddress = document.getElementById("payAddress").value.trim();
+            const amountStr = document.getElementById("payAmount").value.trim();
+
+            if (!ethers.isAddress(toAddress)) return alert("유효한 수신자 지갑 주소를 입력하세요.");
+            if (!amountStr || parseFloat(amountStr) <= 0) return alert("유효한 결제 금액을 입력하세요.");
+
+            const btn = document.getElementById("payBtn");
+            try {
+                btn.disabled = true;
+                btn.innerText = "메타마스크 서명 대기중...";
+
+                const amountWei = ethers.parseUnits(amountStr, 18);
+                const tx = await contract.pay(toAddress, amountWei);
+                showToast("결제 트랜잭션 전송됨! 블록체인 승인을 기다리는 중...");
+                await tx.wait();
+
+                alert("✅ 결제가 블록체인 상에서 성공적으로 완료되었습니다!");
+                document.getElementById("payAddress").value = "";
+                document.getElementById("payAmount").value = "";
+                checkPartnerStatus();
+                await updateUI();
+
+            } catch (error) {
+                console.error(error);
+                alert("❌ 결제 실패: 잔액이 부족하거나 취소되었습니다.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "결제하기 (메타마스크 서명)";
+            }
+        }
+
+        // 관리자: 제휴 가맹점 등록
+        async function addPartner() {
+            const address = document.getElementById("adminStoreAddress").value.trim();
+            if (!ethers.isAddress(address)) return alert("유효한 지갑 주소를 입력하세요.");
+
+            try {
+                const tx = await contract.addPartnerStore(address);
+                showToast("등록 트랜잭션 전송됨! 대기중...");
+                await tx.wait();
+                alert("✅ 제휴 가맹점 등록 완료!");
+                document.getElementById("adminStoreAddress").value = "";
+            } catch (error) {
+                console.error(error);
+                alert("❌ 실패: 관리자(배포자) 계정으로만 실행할 수 있습니다.");
+            }
+        }
+
+        // 관리자: 제휴 가맹점 해제
+        async function removePartner() {
+            const address = document.getElementById("adminStoreAddress").value.trim();
+            if (!ethers.isAddress(address)) return alert("유효한 지갑 주소를 입력하세요.");
+
+            try {
+                const tx = await contract.removePartnerStore(address);
+                showToast("해제 트랜잭션 전송됨! 대기중...");
+                await tx.wait();
+                alert("✅ 제휴 가맹점 해제 완료!");
+                document.getElementById("adminStoreAddress").value = "";
+            } catch (error) {
+                console.error(error);
+                alert("❌ 실패: 관리자(배포자) 계정으로만 실행할 수 있습니다.");
+            }
+        }
+
+        // 유틸리티 함수
+        function copyMyAddress() {
+            if (currentAccount) {
+                navigator.clipboard.writeText(currentAccount).then(() => {
+                    showToast("지갑 주소가 복사되었습니다!");
+                });
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.className = "toast show";
+            setTimeout(function () { toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+
+            const tabEl = document.getElementById(`tab-${tabName}`);
+            const sectionEl = document.getElementById(`${tabName}Tab`);
+
+            if (tabEl) tabEl.classList.add('active');
+            if (sectionEl) sectionEl.classList.add('active');
+        }
+    </script>
+</body>
+
+</html>
